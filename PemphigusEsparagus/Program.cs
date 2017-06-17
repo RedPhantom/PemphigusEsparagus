@@ -11,12 +11,53 @@ namespace PemphigusEsparagus
 {
     class Program
     {
-        const bool allinonefile = true;
+
 
         static void Main(string[] args)
         {
+            string title = "Pemphigus Esparagus Message Thief v1.0";
+            Console.Title = title;
+
+            bool allinonefile = true;
             int pnum = 1; // page number
+            int numpages = 36; // total number of pages
             string totaldata = "";
+            string datapath = ".";
+            try
+            {
+                datapath = args[0];
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("Error: Path not specified. Writing to local directory.");
+                datapath = ".";
+            }
+
+            Console.Write("Write all data to one file? (Y/n) ");
+            switch (Console.ReadLine().ToLower())
+            {
+                case "n":
+                    {
+                        allinonefile = false;
+                        Console.WriteLine("Writing all data to multiple files.");
+                        break;
+                    }
+                default:
+                    {
+                        Console.WriteLine("Writing all data to single file.");
+                        break;
+                    }
+            }
+            
+            try
+            {
+                System.IO.File.WriteAllText(datapath + "/sepdata" + pnum + ".xml", totaldata);
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("Error: Illegal path. Writing to local directory.");
+                throw;
+            }
         Start:
 
             //writeLog("Hello and welcome to pemphigus esparagus v1.0.");
@@ -43,22 +84,34 @@ namespace PemphigusEsparagus
             Console.WriteLine("Started processing page {0}", pnum);
 
             Console.WriteLine(Regex.Matches(page, "DMsg").Count + " threads found.");
-            int bob = Regex.Matches(Regex.Escape(page), Regex.Escape("DMsg")).Count;
+            float bob = Regex.Matches(Regex.Escape(page), Regex.Escape("DMsg")).Count;
             // for each message in the page
-            for (int i = 0; i < bob; i++)
+            for (float i = 0; i < bob; i++)
             {
+            // cases in which the message is the first in the thread:
                 if (startonnext)
                 {
                     Console.WriteLine("Started thread (msg {0} in page).", i);
+                    
                 }
-                if (i == 0) totaldata += "<thread>";
-
+                if (i == 0)
+                {
+                    totaldata += "<thread>";
+                    
+                }
+            // -------
                 int startIndex = page.IndexOf("DMsg(");
                 int endIndex = page.Substring(startIndex).IndexOf(");");
                 int len = endIndex - startIndex;
                 msg = page.Substring(startIndex, endIndex);
                 string msg2 = page.Substring(startIndex, 220);
                 tmpmsg = Message.getData(getMsgId(msg));
+                
+
+                if (startonnext) tmpmsg.firstmsg = true; 
+                if (i == 0) tmpmsg.firstmsg = true;
+
+                Console.WriteLine("Message conversion URL is " + Message.sendToServer(tmpmsg));
 
                 // writeLog(tmpmsg.msgId + "   " + tmpmsg.dateTime + "     " + tmpmsg.title + "     " + tmpmsg.author + "    " + tmpmsg.body);
                 totaldata += Message.renderData(tmpmsg, Message.renderType.XML);
@@ -75,16 +128,18 @@ namespace PemphigusEsparagus
                     startonnext = false;
                     tmpmsg.lastmsg = false;
                 }
+                Console.Title = title + " / progress: " + (i * 100 / bob).ToString() + "% page " + pnum + " out of " + numpages;
 
                 page = page.Replace(msg, ""); // remove the used-up message.
             }
             if (!allinonefile)
             {
-                System.IO.File.WriteAllText("ynetdata-pg." + pnum + ".xml", totaldata);
+
+                System.IO.File.WriteAllText(datapath + "/sepdata" + pnum + ".xml", totaldata);
                 Console.WriteLine("Page {0} has been saved to disk.", pnum);
             }
             pnum++;
-            if (pnum <= 36) goto Start;
+            if (pnum <= numpages) goto Start;
             if (allinonefile)
             {
                 System.IO.File.WriteAllText("compdata-pg." + pnum + ".xml", totaldata);

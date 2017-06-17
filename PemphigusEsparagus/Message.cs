@@ -12,6 +12,7 @@ namespace PemphigusEsparagus
         public string author { get; set; }
         public string body { get; set; }
         public bool lastmsg { get; set; }
+        public bool firstmsg { get; set; }
 
         public enum renderType { XML, CSV }
 
@@ -103,6 +104,16 @@ namespace PemphigusEsparagus
             return msg;
         }
 
+        public static string sendToServer(Message msg)
+        {
+            string author = System.Uri.EscapeDataString(msg.author);
+            string datetime = System.Uri.EscapeDataString(msg.dateTime);
+            string body = System.Uri.EscapeDataString(msg.body);
+            string title = System.Uri.EscapeDataString(msg.title);
+            string isfirst = msg.firstmsg.ToString().ToLower();
+            string url = "http://asayag.ddns.net/pemphigus/putmessage.php?title=" + title + "&datetime=" + datetime + "&author=" + author + "&body=" + body + "&first=" + isfirst;
+            return url;
+        }
         public static int getStartPoint(string data, string sp)
         {
             return data.IndexOf(sp) + sp.Length;
@@ -116,6 +127,12 @@ namespace PemphigusEsparagus
         {
             return data.Remove(data.IndexOf(str), str.Length);
 
+        }
+
+        public static string Base64Encode(string plainText)
+        {
+            var plainTextBytes = System.Text.Encoding.UTF8.GetBytes(plainText);
+            return System.Convert.ToBase64String(plainTextBytes);
         }
 
     }
