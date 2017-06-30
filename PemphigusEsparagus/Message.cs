@@ -1,12 +1,16 @@
 ﻿using System;
 using System.Net;
 using System.Xml;
+using System.Net.Http;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace PemphigusEsparagus
 {
     public class Message
     {
         public long msgId { get; set; }
+        public int threadId { get; set; }
         public string title { get; set; }
         public string dateTime { get; set; }
         public string author { get; set; }
@@ -16,6 +20,7 @@ namespace PemphigusEsparagus
 
         public enum renderType { XML, CSV }
 
+        private static readonly HttpClient client = new HttpClient();
         /*
          * 
          * 
@@ -40,6 +45,8 @@ namespace PemphigusEsparagus
                 msg.body.Replace("\r\n", "<br>");
                 msg.body.Replace("\n", "<br>");
                 msg.body.Replace("\r", "<br>");
+                msg.body.Replace("<", "");
+                msg.body.Replace(">", "");
 
                 _xml += "<msg id=\"" + msg.msgId + "\">";
                 _xml += "<title>" + msg.title + "</title>";
@@ -111,7 +118,7 @@ namespace PemphigusEsparagus
             string body = System.Uri.EscapeDataString(msg.body);
             string title = System.Uri.EscapeDataString(msg.title);
             string isfirst = msg.firstmsg.ToString().ToLower();
-            string url = "http://asayag.ddns.net/pemphigus/putmessage.php?title=" + title + "&datetime=" + datetime + "&author=" + author + "&body=" + body + "&first=" + isfirst;
+            string url = "http://10.0.0.7/pemphigus/putmessage.php?title=" + title + "&datetime=" + datetime + "&author=" + author + "&body=" + body + "&first=" + isfirst;
             return url;
         }
         public static int getStartPoint(string data, string sp)
@@ -135,6 +142,58 @@ namespace PemphigusEsparagus
             return System.Convert.ToBase64String(plainTextBytes);
         }
 
+       /* public Message upload(Message msg, int threadId = 0)
+        {
+            int id = 0;
+
+            if (msg.firstmsg)
+            {
+                // create new topic
+                id = msg.postTopic(4, msg.body, msg.title).Result;
+                msg.threadId = id;
+                return (msg);
+            } else
+            {
+                // create new reply
+
+                msg.postReply(threadId, msg.body, msg.title);
+                return (msg);
+            }
+
+        } */
+
+        public async Task<int> postTopic(int forumId, string topicBody, string topicTitle)
+        {
+            var values = new Dictionary<string, string>
+                {
+                   { "action", "topic" },
+                   { "body", topicBody },
+                   { "title", topicTitle },
+                   { "id", forumId.ToString() }
+                };
+
+            var content = new FormUrlEncodedContent(values);
+
+            var response = await client.PostAsync("http://10.0.0.7/pemphigus/uploadData.php", content);
+
+            var responseString = await response.Content.ReadAsStringAsync();
+            return (int.Parse(responseString));
+        }
+
+        public async Task postReply(int topicId, string replyBody, string replyTitle)
+        {
+            var values = new Dictionary<string, string>
+                {
+                   { "action", "reply" },
+                   { "body", replyBody },
+                   { "title", replyTitle },
+                   { "id", topicId.ToString() }
+                };
+
+            var content = new FormUrlEncodedContent(values);
+
+            var response = await client.PostAsync("http://10.0.0.7/pemphigus/uploadData.php", content);
+        }
     }
 
 }
