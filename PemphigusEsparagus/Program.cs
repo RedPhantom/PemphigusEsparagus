@@ -15,6 +15,8 @@ namespace PemphigusEsparagus
         static void Main(string[] args)
         {
             int constForumId = 4385;
+            long startMsgId = 0;
+            bool useNext;
             string title = "Pemphigus Esparagus Message Thief v1.0";
             Console.Title = title;
             GlobalVar varHandler = new GlobalVar();
@@ -58,7 +60,22 @@ namespace PemphigusEsparagus
                         break;
                     }
             }
-            
+
+            Console.Write("Enter a MsgId to start width or enter x to cancel. ");
+            Console.WriteLine("Only use this option if this message is the first in a topic, otherwise" +
+                " it may be parented to the wrong thread.");
+            string msgStart = Console.ReadLine();
+            if (msgStart.All(char.IsDigit))
+            {
+                useNext = false;
+                startMsgId = long.Parse(msgStart);
+                Console.WriteLine("Will start at message ID {0}.",startMsgId);
+            } else
+            {
+                useNext = true;
+                startMsgId = -1;
+                Console.WriteLine("Will go through all messages.");
+            }
             Console.Write("Please specify the Forum ID to upload the data to: ");
 lbl001:
             try
@@ -78,7 +95,7 @@ lbl001:
                 }
                 catch (Exception)
                 {
-                    Console.WriteLine("Error: Illegal path. Writing to local directory.");
+                    Console.WriteLine("Warning: Illegal path. Writing to local directory.");
                     throw;
                 }
             }
@@ -129,62 +146,76 @@ lbl001:
                 string msg2 = page.Substring(startIndex, 220);
                 tmpmsg = Message.getData(getMsgId(msg));
                 
+                if (tmpmsg.msgId == startMsgId)
+                {
+                    useNext = true;
+                }
 
                 if (startonnext) tmpmsg.firstmsg = true; 
                 if (i == 0) tmpmsg.firstmsg = true;
 
-                if (tmpmsg.firstmsg)
-                {
-                    // post topic
-                    try
+                if (useNext) { 
+                    if (tmpmsg.firstmsg)
                     {
+                        // post topic
+                        try
+                        {
                         
-                        tmpmsg.body = "מחבר מקורי: " + tmpmsg.author + " בתאריך " + tmpmsg.dateTime + "<br><br><br>" + tmpmsg.body;
-                        tmpmsg.body = "<i>אוחזר באמצעות כלי הפורומים של איתי אסייג</i><br>" + tmpmsg.body;
-                        var topicTask = tmpmsg.postTopic(constForumId, tmpmsg.body, tmpmsg.title);
-                        Console.Write("Uploading topic {0} ... ", tmpmsg.msgId);
-                        topicTask.Wait();
-                        Console.WriteLine("done.");
-                        threadId = topicTask.Result;
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine("Exception caught while writing a topic: " + ex.Message);
-                        Console.WriteLine("Faulty message is " + tmpmsg.msgId);
-                        Console.ReadKey();
-                        threadId = 0;
-                    }
+                            tmpmsg.body = "מחבר מקורי: " + tmpmsg.author + " בתאריך " + tmpmsg.dateTime + "<br><br><br>" + tmpmsg.body;
+                            tmpmsg.body = "<i>אוחזר באמצעות כלי הפורומים של איתי אסייג</i><br>" + tmpmsg.body;
+                            var topicTask = tmpmsg.postTopic(constForumId, tmpmsg.body, tmpmsg.title);
+                            Console.Write("Uploading topic {0} ... ", tmpmsg.msgId);
+                            topicTask.Wait();
+                            Console.WriteLine("done.");
+                            threadId = topicTask.Result;
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine("Exception caught while writing a topic: " + ex.Message);
+                            Console.WriteLine("Faulty message is " + tmpmsg.msgId);
+                            Console.ReadKey();
+                            threadId = 0;
+                        }
                     
-                    tmpmsg.threadId = threadId;
-                    varHandler.setThreadId(threadId);
+                        tmpmsg.threadId = threadId;
+                        varHandler.setThreadId(threadId);
+                    } else
+                    {
+                        // post reply
+                        tmpmsg.threadId = varHandler.getThreadId();
+                        try
+                        {
+                            if (tmpmsg.body == "")
+                            {
+                                tmpmsg.body = "(ללא תוכן)";
+                            }
+                            tmpmsg.body = "כותרת: " + tmpmsg.title + "<br>" + tmpmsg.body;
+                            tmpmsg.body = "מחבר מקורי: " + tmpmsg.author + " בתאריך " + tmpmsg.dateTime + "<br><br><br>" + tmpmsg.body;
+                            Console.Write("Uploading reply MsgID {0}->{1} SrvrID ... ", tmpmsg.threadId, tmpmsg.msgId);
+                            var replyTask = tmpmsg.postReply(tmpmsg.threadId, tmpmsg.body, tmpmsg.title);
+                            replyTask.Wait();
+                            Console.WriteLine("done.");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine("Exception caught while writing a reply: " + ex.Message);
+                            Console.WriteLine("Faulty message is " + tmpmsg.msgId);
+                            Console.ReadKey();
+                            threadId = 0;
+                        }
+                    }
                 } else
                 {
-                    // post reply
-                    tmpmsg.threadId = varHandler.getThreadId();
-                    try
-                    {
-                        if (tmpmsg.body == "")
-                        {
-                            tmpmsg.body = "(ללא תוכן)";
-                        }
-                        tmpmsg.body = "כותרת: " + tmpmsg.title + "<br>" + tmpmsg.body;
-                        tmpmsg.body = "מחבר מקורי: " + tmpmsg.author + " בתאריך " + tmpmsg.dateTime + "<br><br><br>" + tmpmsg.body;
-                        Console.Write("Uploading reply MsgID {0}->{1} SrvrID ... ", tmpmsg.threadId, tmpmsg.msgId);
-                        var replyTask = tmpmsg.postReply(tmpmsg.threadId, tmpmsg.body, tmpmsg.title);
-                        replyTask.Wait();
-                        Console.WriteLine("done.");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine("Exception caught while writing a reply: " + ex.Message);
-                        Console.WriteLine("Faulty message is " + tmpmsg.msgId);
-                        Console.ReadKey();
-                        threadId = 0;
-                    }
+                    Console.WriteLine("Msg {0} uploading skipped.", tmpmsg.msgId.ToString());
                 }
 
                 // writeLog(tmpmsg.msgId + "   " + tmpmsg.dateTime + "     " + tmpmsg.title + "     " + tmpmsg.author + "    " + tmpmsg.body);
-                totaldata += Message.renderData(tmpmsg, Message.renderType.XML);
+                if (useNext) { 
+                    totaldata += Message.renderData(tmpmsg, Message.renderType.XML);
+                } else
+                {
+                    Console.WriteLine("Msg {0} saving to file skipped.", tmpmsg.msgId.ToString());
+                }
                 //onsole.WriteLine("Msg {0} done.", tmpmsg.msgId);
                 if (msg2.Contains("DEndT"))
                 {
